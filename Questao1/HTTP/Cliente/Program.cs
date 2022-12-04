@@ -20,8 +20,7 @@ app.MapGet("/{Nome}/{Cargo}/{Salario}", (string Nome, string Cargo, int Salario)
         return Results.Ok(Operador);
     }
 
-
-    return Results.BadRequest();
+    return Results.BadRequest("Error");
 });
 
 app.Run();
