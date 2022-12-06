@@ -30,22 +30,3 @@ while True:
 
         print('Finalizando conexão do cliente', cliente)
         conexao.close()
-
-        PORT = 8080
-
-        destino = (HOST, PORT)
-
-        tcp.connect(destino)
-
-        naipe = mensagem.decode().split()[0]
-        valor = mensagem.decode().split()[1]
-        if naipe == '1':
-            naipe = 'ouros'
-        elif naipe == '2':
-           naipe = 'paus'
-        elif naipe == '3':
-           naipe = 'copas'
-        else: 
-           naipe = 'espadas'
-        tcp.send(str(valor + " de " + naipe).encode())
-        tcp.close()
