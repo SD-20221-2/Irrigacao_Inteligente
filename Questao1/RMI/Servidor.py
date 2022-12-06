@@ -8,8 +8,10 @@ class Reajuste(object):
     def salarioReajustado(self, cargo, salario):
         if cargo == "Operador":
             return salario * 1.2
-        else:
+        elif cargo == "Programador":
             return salario * 1.18
+        else:
+            return "error"
 
 
 daemon = Pyro4.Daemon(host='localhost')
