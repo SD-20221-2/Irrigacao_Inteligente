@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-import socket, pickle
+import socket
+import pickle
 
 HOST = "localhost"
 PORT = 50001
