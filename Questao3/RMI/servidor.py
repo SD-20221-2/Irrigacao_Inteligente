@@ -5,7 +5,7 @@ import os
 
 @Pyro4.expose
 class Situacao(object):
-    def calculaSituacao(n1, n2, n3):
+    def calculaSituacao(self, n1, n2, n3):
         media_M = (n1 + n2) / 2
         media = (media_M + n3)/2
 
