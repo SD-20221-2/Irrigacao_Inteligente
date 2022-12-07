@@ -30,7 +30,7 @@ while True:
         mensagem = "Error"
 
         if data_array[0]>=65 or data_array[1]>=30 or (data_array[0]>=60 & data_array[1]>=25):
-            data = "Pode se aposentar!"
+            mensagem = "Pode se aposentar!"
         else: 
             mensagem = "Não pode se aposentar!"
 
