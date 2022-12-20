@@ -5,7 +5,7 @@ import socket
 import pickle
 
 HOST = "localhost"
-PORT = 50001
+PORT = 5000
 
 
 class Th(Thread):
@@ -19,13 +19,15 @@ class Th(Thread):
         print(addr, " conectado")
 
         while True:
-            data = conn.recv(1024)
+            data = self.conn.recv(1024)
             if not data:
                 print("Conexão encerrada")
                 conn.close()
                 break
 
-            data_array = pickle.loads(data)
+            data = data.decode("utf-8")
+            data_array = data.split(" ")
+            print(data_array)
 
             data = "Error"
 
