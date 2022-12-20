@@ -1,6 +1,6 @@
+import sys
 from threading import Thread
 import socket
-import pickle
 
 class Th(Thread):
 
@@ -20,11 +20,15 @@ class Th(Thread):
             if not mensagem:
                 break
         
-            data_array = pickle.loads(mensagem)
+            mensagem = mensagem.decode("utf-8")
+            data_array = mensagem.split()
 
             mensagem = "Error"
 
-            if data_array[0]>=65 or data_array[1]>=30 or (data_array[0]>=60 & data_array[1]>=25):
+            idade = int(data_array[0])
+            tempoServico = int(data_array[1])
+
+            if idade>=65 or tempoServico>=30 or (idade>=60 & tempoServico>=25):
                 mensagem = "Pode se aposentar!"
             else: 
                 mensagem = "Não pode se aposentar!"
@@ -32,7 +36,7 @@ class Th(Thread):
             conexao.sendall(str.encode(mensagem))      
 
 HOST = 'localhost'
-PORT = 5000
+PORT = 1531
 
 tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 origem = (HOST, PORT)

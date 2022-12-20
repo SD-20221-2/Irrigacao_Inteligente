@@ -1,6 +1,6 @@
+import sys
 from threading import Thread
 import socket
-import pickle
 
 class Th(Thread):
 
@@ -20,7 +20,8 @@ class Th(Thread):
             if not mensagem:
                 break
         
-            data_array = pickle.loads(mensagem)
+            mensagem = mensagem.decode("utf-8")
+            data_array = mensagem.split()
 
             mensagem = "Error"
 
@@ -39,7 +40,7 @@ class Th(Thread):
             conexao.sendall(str.encode(mensagem))      
 
 HOST = 'localhost'
-PORT = 8080
+PORT = 1529
 
 tcp = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 origem = (HOST, PORT)
