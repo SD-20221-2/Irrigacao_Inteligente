@@ -1,28 +1,20 @@
+import time
+import zmq
 
-import paho.mqtt.client as mqtt
-from struct import pack
-from random import randint
-from time import sleep
 
-AREA_ID = 10
-SENSOR_ID = 5000
+def main():
 
-# topicos providos por este sensor
-ut = "area/%d/sensor/%s/umidade" % (AREA_ID, SENSOR_ID)
+    context = zmq.Context()
+    publisher = context.socket(zmq.PUB)
+    publisher.bind("tcp://192.168.100.5:2020")
 
-# cria um identificador baseado no id do sensor
-client = mqtt.Client(client_id='NODE:%d-%d' % (AREA_ID, SENSOR_ID),
-                     protocol=mqtt.MQTTv31)
-# conecta no broker
-client.connect("127.0.0.1", 1883)
+    while True:
+        #Exercicio 1 :
+        publisher.send_multipart([b"umidade", b'{ "regarOuNao":"sim"}'])
+        time.sleep(1)
 
-while True:
-    # gera um valor de umidade aleatório
-    u = randint(0, 100)
-    # codificando o payload como big endian, 2 bytes
-    payload = pack(">H", u)
-    # envia a publicação
-    client.publish(ut, payload, qos=0)
-    print(ut + "/" + str(u))
+    publisher.close()
+    context.term()
 
-    sleep(5)
+if __name__ == "__main__":
+    main()

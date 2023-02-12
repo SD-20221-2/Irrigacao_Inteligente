@@ -1,30 +1,46 @@
-import paho.mqtt.client as mqtt
-from struct import unpack
-from time import sleep
+# =====Irrigação Inteligente=====
+# Projeto desenvolvido por alunos da disciplina Sitemas Distribuídos
+# ministrada pelo docente Sérgio Ribeiro.
 
-# assinando todas as publicações dentro da area 10
-TOPIC = "area/10/sensor/#"
+# ====INSTALAÇÕES====
+# pip install pyzmq   : ZeroMQ
+# pip install fastapi : FastAPI (framework utilizado para criação de APIs)
+# pip install uvicorn : servidor web para Python - utilizado pelo FastAPI.
+#Para iniciar o servidor : python -m uvicorn subscriber:app --reload
 
-# função chamada quando a conexão for realizada, sendo
-# então realizada a subscrição
-def on_connect(client, data, rc):
-    client.subscribe([(TOPIC,0)])
+# =====SUBSCRIBER=====
+# Responsável pelo recebimento de dados provindos do ESP32 e também 
+# pela disponibização de endpoints para que seja realizada a integração
+# Telegram - Servidor.
 
-# função chamada quando uma nova mensagem do tópico é gerada
-def on_message(client, userdata, msg):
-    # decodificando o valor recebido
-    v = unpack(">H",msg.payload)[0]
-    print(msg.topic + "/" + str(v))
+import zmq
+import json
+from fastapi import FastAPI
 
-# clia um cliente para supervisã0
-client = mqtt.Client(client_id = 'SCADA',
-                     protocol = mqtt.MQTTv31)
-# estabelece as funçõe de conexão e mensagens
-client.on_connect = on_connect
-client.on_message = on_message
+app = FastAPI()
 
-# conecta no broker
-client.connect("localhost", 1883)
+@app.get("/RegarOuNao")
+def getRegarOuNao():
+    
+    context = zmq.Context()
 
-# permace em loop, recebendo mensagens
-client.loop_forever()
+    subscriber = context.socket(zmq.SUB)
+    subscriber.connect("tcp://192.168.100.5:2020")
+    subscriber.setsockopt(zmq.SUBSCRIBE, b"umidade")
+
+    poller = zmq.Poller()
+    poller.register(subscriber, zmq.POLLIN)
+
+    try:
+        socks = dict(poller.poll())
+    except KeyboardInterrupt:
+        exit()
+
+    if subscriber in socks:
+        [address, contents] = subscriber.recv_multipart()
+        conteudo = json.loads(contents)
+        regarOuNao = conteudo["regarOuNao"]
+        return regarOuNao
+
+    subscriber.close()
+    context.term()
