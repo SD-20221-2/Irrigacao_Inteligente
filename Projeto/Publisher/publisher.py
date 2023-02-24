@@ -79,10 +79,10 @@ if __name__ == "__main__":
 
 # def main():
 #     while True:
-#         # data = receive_data()
-#         # if data:
-#         #     # Aqui você pode fazer o processamento necessário com os dados recebidos
-#         #     print("Dados recebidos:", data)
+#         data = receive_data()
+#         if data:
+#             # Aqui você pode fazer o processamento necessário com os dados recebidos
+#             print("Dados recebidos:", data)
 
 #         send_data({"precisaRegar": False, "umidade": 30})
 #         time.sleep(1)

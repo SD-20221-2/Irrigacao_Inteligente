@@ -71,6 +71,10 @@ def main():
 def getData():
     return receive_status()
 
+# @app.get("/")
+# def postData():
+
+
 
 # @app.post("/")
 # def postData():
