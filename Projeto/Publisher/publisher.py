@@ -1,5 +1,11 @@
 import time
 import zmq
+from fastapi import FastAPI
+import uvicorn
+import threading
+import random
+
+app = FastAPI()
 
 base_url = "192.168.100.22"
 statusPort = "2020"
@@ -8,22 +14,40 @@ urlStatus = f"tcp://{base_url}:{statusPort}"
 urlParams = f"tcp://{base_url}:{paramsPort}"
 
 
-def send_status():
+def run_publisher():
     context = zmq.Context()
     publisher = context.socket(zmq.PUB)
     publisher.bind(urlStatus)
 
     while True:
+        umidade = random.randint(0, 9999)
+        message = f'{{"precisaRegar":true,"umidade":{umidade}}}'
         publisher.send_multipart(
-            [b"status", b'{ "precisaRegar":true,"umidade":20}'])
+            [b"status", message.encode('utf-8')])
         time.sleep(1)
 
     publisher.close()
     context.term()
 
 
+def run_server():
+    uvicorn.run(app, host="localhost", port=8001)
+
+
+@app.get("/")
+def getData():
+    return ("opa")
+
+
 def main():
-    send_status()
+    t1 = threading.Thread(target=run_server)
+    t2 = threading.Thread(target=run_publisher)
+
+    t1.start()
+    t2.start()
+
+    t1.join()
+    t2.join()
 
 
 if __name__ == "__main__":

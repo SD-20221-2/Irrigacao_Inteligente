@@ -14,10 +14,13 @@
 # Telegram - Servidor.
 
 
-import time
 import zmq
 import json
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
+from pydantic import BaseModel
+import uvicorn
+import threading
+import sqlite3
 
 app = FastAPI()
 
@@ -28,7 +31,15 @@ urlStatus = f"tcp://{base_url}:{statusPort}"
 urlParams = f"tcp://{base_url}:{paramsPort}"
 
 
-def receive_status():
+class Request(BaseModel):
+    tipo_cultura: int
+
+
+class Status(BaseModel):
+    umidade: int
+
+
+def receive_status(last_umidade=0):
     context = zmq.Context()
     subscriber = context.socket(zmq.SUB)
     subscriber.connect(urlStatus)
@@ -47,39 +58,105 @@ def receive_status():
     if subscriber in socks:
         [address, contents] = subscriber.recv_multipart()
         conteudo = json.loads(contents)
+        umidade = conteudo['umidade']
+
+        if umidade != last_umidade:
+            if umidade != None:
+                update_status(umidade)
+            last_umidade = umidade
+
         subscriber.close()
         context.term()
-        return conteudo
+        return umidade
 
 
-def send_params():
-    send_context = zmq.Context()
-    publisher = send_context.socket(zmq.PUB)
-    publisher.bind(urlParams)
+def run_subscriber():
+    last_umidade = 0
+    while True:
+        last_umidade = receive_status(last_umidade)
 
-    publisher.send_multipart([b"params", b'{ "cultura":"Alface"}'])
-    publisher.close()
-    send_context.term()
+
+def run_server():
+    uvicorn.run(app, host="localhost", port=8002)
+
+
+def create_or_connect_server():
+    conn = sqlite3.connect('irrigacao_inteligente.db')
+
+    conn.execute('''CREATE TABLE IF NOT EXISTS cultura
+                    (cod INTEGER PRIMARY KEY,
+                    tipo_cultura INTEGER NOT NULL)
+                ''')
+
+    cursor = conn.execute('SELECT cod FROM cultura WHERE cod = 1')
+
+    if cursor.fetchone() == None:
+        conn.execute(
+            '''INSERT INTO cultura (cod, tipo_cultura) VALUES (1, 0)''')
+
+    conn.execute('''CREATE TABLE IF NOT EXISTS status
+                    (cod INTEGER PRIMARY KEY,
+                    umidade INTEGER NOT NULL)
+                ''')
+
+    cursor = conn.execute('SELECT cod FROM status WHERE cod = 1')
+
+    if cursor.fetchone() == None:
+        conn.execute(
+            '''INSERT INTO status (cod, umidade) VALUES (1, 0)''')
+
+    conn.commit()
+    conn.close()
+
+
+def read_status():
+    conn = sqlite3.connect('irrigacao_inteligente.db')
+    cursor = conn.execute('SELECT cod FROM status WHERE cod = 1')
+    retorno = cursor.fetchone()
+    conn.close()
+    return retorno
+
+
+def update_cultura(cultura):
+    conn = sqlite3.connect('irrigacao_inteligente.db')
+    conn.execute(f"UPDATE cultura SET tipo_cultura = {cultura} WHERE cod = 1")
+    conn.commit()
+    conn.close()
+
+
+def update_status(umidade):
+    conn = sqlite3.connect('irrigacao_inteligente.db')
+    conn.execute(f"UPDATE status SET umidade = {umidade} WHERE cod = 1")
+    conn.commit()
+    conn.close()
 
 
 def main():
-    while True:
-        print(receive_status())
+    create_or_connect_server()
+    read_status()
+
+    subscriber_thread = threading.Thread(target=run_subscriber)
+    server_thread = threading.Thread(target=run_server)
+
+    subscriber_thread.start()
+    server_thread.start()
+
+    subscriber_thread.join()
+    server_thread.join()
 
 
 @app.get("/")
 def getData():
-    return receive_status()
-
-# @app.get("/")
-# def postData():
-
+    umidade = receive_status()
+    response_dict = {"umidade": umidade}
+    return Response(content=json.dumps(response_dict), media_type="application/json")
 
 
-
-# @app.post("/")
-# def postData():
-#     return send_params()
+@app.post("/")
+def postData(request: Request):
+    update_cultura(request.tipo_cultura)
+    # TODO: fazer a regra de negócio e a chamada no endpoint do ESP32 que irá settar o tipo de cultura
+    return request
 
 
 if __name__ == "__main__":
