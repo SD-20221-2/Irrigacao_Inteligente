@@ -9,9 +9,7 @@ app = FastAPI()
 
 base_url = "192.168.100.22"
 statusPort = "2020"
-paramsPort = "2021"
 urlStatus = f"tcp://{base_url}:{statusPort}"
-urlParams = f"tcp://{base_url}:{paramsPort}"
 
 
 def run_publisher():

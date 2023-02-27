@@ -1,32 +1,19 @@
-# =====Irrigação Inteligente=====
-# Projeto desenvolvido por alunos da disciplina Sitemas Distribuídos
-# ministrada pelo docente Sérgio Ribeiro.
-
-# ====INSTALAÇÕES====
-# pip install pyzmq   : ZeroMQ
-# pip install fastapi : FastAPI (framework utilizado para criação de APIs)
-# pip install uvicorn : servidor web para Python - utilizado pelo FastAPI.
-# Para iniciar o servidor : python -m uvicorn subscriber:app --reload
-
-# =====SUBSCRIBER=====
-# Responsável pelo recebimento de dados provindos do ESP32 e também
-# pela disponibização de endpoints para que seja realizada a integração
-# Telegram - Servidor.
-
-
-import zmq
+# from enum import Enum
 import json
 from fastapi import FastAPI, Response
 from pydantic import BaseModel
 import uvicorn
 import threading
 import sqlite3
+import paho.mqtt.client as mqtt
 
 app = FastAPI()
 
 base_url = "192.168.100.22"
 statusPort = "2020"
-urlStatus = f"tcp://{base_url}:{statusPort}"
+urlStatus = f"mqtt://{base_url}:{statusPort}"
+mqtt_server = "localhost"
+mqtt_port = 1883
 
 
 class Request(BaseModel):
@@ -37,41 +24,25 @@ class Status(BaseModel):
     umidade: int
 
 
-def receive_status(last_umidade=0):
-    context = zmq.Context()
-    subscriber = context.socket(zmq.SUB)
-    subscriber.connect(urlStatus)
-    subscriber.setsockopt(zmq.SUBSCRIBE, b"status")
+def on_connect(client, userdata, flags, rc):
+    print("Connected with result code "+str(rc))
+    client.subscribe("status")
 
-    poller = zmq.Poller()
-    poller.register(subscriber, zmq.POLLIN)
 
-    try:
-        socks = dict(poller.poll(1000))
-    except KeyboardInterrupt:
-        subscriber.close()
-        context.term()
-        exit()
-
-    if subscriber in socks:
-        [address, contents] = subscriber.recv_multipart()
-        conteudo = json.loads(contents)
+def on_message(client, userdata, msg):
+    # print(msg.topic+" "+str(msg.payload))
+    if msg.topic == "status":
+        conteudo = json.loads(msg.payload)
         umidade = conteudo['umidade']
-
-        if umidade != last_umidade:
-            if umidade != None:
-                update_status(umidade)
-            last_umidade = umidade
-
-        subscriber.close()
-        context.term()
-        return umidade
+        update_status(umidade)
 
 
 def run_subscriber():
-    last_umidade = 0
-    while True:
-        last_umidade = receive_status(last_umidade)
+    client = mqtt.Client()
+    client.on_connect = on_connect
+    client.on_message = on_message
+    client.connect(mqtt_server, mqtt_port, 60)
+    client.loop_forever()
 
 
 def run_server():
@@ -115,6 +86,14 @@ def read_status():
     return retorno
 
 
+def read_params():
+    conn = sqlite3.connect('irrigacao_inteligente.db')
+    cursor = conn.execute('SELECT tipo_cultura FROM cultura WHERE cod = 1')
+    retorno = cursor.fetchone()[0]
+    conn.close()
+    return retorno
+
+
 def update_cultura(cultura):
     conn = sqlite3.connect('irrigacao_inteligente.db')
     conn.execute(f"UPDATE cultura SET tipo_cultura = {cultura} WHERE cod = 1")
@@ -142,19 +121,23 @@ def main():
     server_thread.join()
 
 
-@app.get("/")
+@app.get("/stats")
 def getData():
-    # print(read_status())
-    # umidade = receive_status()
     umidade = read_status()
     response_dict = {"umidade": umidade}
     return Response(content=json.dumps(response_dict), media_type="application/json")
 
 
-@app.post("/")
+@app.get("/params")
+def getParams():
+    tipo_cultura = read_params()
+    response_dict = {"codCultura": tipo_cultura}
+    return Response(content=json.dumps(response_dict), media_type="application/json")
+
+
+@app.post("/stats")
 def postData(request: Request):
     update_cultura(request.tipo_cultura)
-    # TODO: fazer a regra de negócio e a chamada no endpoint do ESP32 que irá settar o tipo de cultura
     return request
 
 
