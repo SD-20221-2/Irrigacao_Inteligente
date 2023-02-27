@@ -9,9 +9,6 @@ import paho.mqtt.client as mqtt
 
 app = FastAPI()
 
-base_url = "192.168.100.22"
-statusPort = "2020"
-urlStatus = f"mqtt://{base_url}:{statusPort}"
 mqtt_server = "localhost"
 mqtt_port = 1883
 
