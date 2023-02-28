@@ -9,9 +9,8 @@ import paho.mqtt.client as mqtt
 
 app = FastAPI()
 
-# mqtt_server = "l828da7e.ala.us-east-1.emqxsl.com"
-# mqtt_server = "broker.emqx.io"
-# tcp://0.tcp.sa.ngrok.io:11272
+http_host = "localhost"
+http_port = 8002
 mqtt_server = "0.tcp.sa.ngrok.io"
 mqtt_port = 11272
 username = "irrigacao"
@@ -52,10 +51,10 @@ def run_subscriber():
 
 
 def run_server():
-    uvicorn.run(app, host="localhost", port=8002)
+    uvicorn.run(app, host=http_host, port=http_port)
 
 
-def create_or_connect_server():
+def create_or_connect_db():
     conn = sqlite3.connect('irrigacao_inteligente.db')
 
     conn.execute('''CREATE TABLE IF NOT EXISTS cultura
@@ -122,7 +121,7 @@ def update_status(umidade, precisaRegar):
 
 
 def main():
-    create_or_connect_server()
+    create_or_connect_db()
 
     subscriber_thread = threading.Thread(target=run_subscriber)
     server_thread = threading.Thread(target=run_server)
@@ -147,6 +146,13 @@ def getParams():
     tipo_cultura = read_params()
     response_dict = {"codCultura": tipo_cultura}
     return Response(content=json.dumps(response_dict), media_type="application/json")
+
+
+@app.get("/params/cod")
+def getParams():
+    tipo_cultura = read_params()
+    tipo_cultura = str(tipo_cultura)
+    return Response(tipo_cultura, media_type="text")
 
 
 @app.post("/params")
