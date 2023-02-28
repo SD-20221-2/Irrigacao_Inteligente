@@ -9,8 +9,13 @@ import paho.mqtt.client as mqtt
 
 app = FastAPI()
 
-mqtt_server = "localhost"
-mqtt_port = 1883
+# mqtt_server = "l828da7e.ala.us-east-1.emqxsl.com"
+# mqtt_server = "broker.emqx.io"
+# tcp://0.tcp.sa.ngrok.io:11272
+mqtt_server = "0.tcp.sa.ngrok.io"
+mqtt_port = 11272
+username = "irrigacao"
+password = "senha123"
 
 
 class Request(BaseModel):
@@ -31,11 +36,15 @@ def on_message(client, userdata, msg):
     if msg.topic == "status":
         conteudo = json.loads(msg.payload)
         umidade = conteudo['umidade']
-        update_status(umidade)
+        precisaRegar = conteudo['precisaRegar']
+        # print("new message: umidade: " + str(umidade) +
+        #       "%, precisaRegar: " + str(precisaRegar))
+        update_status(umidade, precisaRegar)
 
 
 def run_subscriber():
-    client = mqtt.Client()
+    client = mqtt.Client("2")
+    client.username_pw_set(username, password)
     client.on_connect = on_connect
     client.on_message = on_message
     client.connect(mqtt_server, mqtt_port, 60)
@@ -62,22 +71,26 @@ def create_or_connect_server():
 
     conn.execute('''CREATE TABLE IF NOT EXISTS status
                     (cod INTEGER PRIMARY KEY,
-                    umidade INTEGER NOT NULL)
+                    umidade INTEGER NOT NULL,
+                    precisa_regar INTEGER NOT NULL)
                 ''')
 
     cursor = conn.execute('SELECT cod FROM status WHERE cod = 1')
 
     if cursor.fetchone() == None:
         conn.execute(
-            '''INSERT INTO status (cod, umidade) VALUES (1, 0)''')
+            '''INSERT INTO status (cod, umidade, precisa_regar) VALUES (1, 0, 0)''')
 
     conn.commit()
     conn.close()
 
 
-def read_status():
+def read_status(param):
     conn = sqlite3.connect('irrigacao_inteligente.db')
-    cursor = conn.execute('SELECT umidade FROM status WHERE cod = 1')
+    if param == "umidade":
+        cursor = conn.execute('SELECT umidade FROM status WHERE cod = 1')
+    if param == "precisaRegar":
+        cursor = conn.execute('SELECT precisa_regar FROM status WHERE cod = 1')
     retorno = cursor.fetchone()[0]
     conn.close()
     return retorno
@@ -98,9 +111,12 @@ def update_cultura(cultura):
     conn.close()
 
 
-def update_status(umidade):
+def update_status(umidade, precisaRegar):
     conn = sqlite3.connect('irrigacao_inteligente.db')
     conn.execute(f"UPDATE status SET umidade = {umidade} WHERE cod = 1")
+    conn.commit()
+    conn.execute(
+        f"UPDATE status SET precisa_regar = {precisaRegar} WHERE cod = 1")
     conn.commit()
     conn.close()
 
@@ -118,10 +134,11 @@ def main():
     server_thread.join()
 
 
-@app.get("/stats")
+@app.get("/status")
 def getData():
-    umidade = read_status()
-    response_dict = {"umidade": umidade}
+    umidade = read_status('umidade')
+    precisaRegar = read_status('precisaRegar')
+    response_dict = {"umidade": umidade, "precisaRegar": precisaRegar}
     return Response(content=json.dumps(response_dict), media_type="application/json")
 
 
@@ -132,7 +149,7 @@ def getParams():
     return Response(content=json.dumps(response_dict), media_type="application/json")
 
 
-@app.post("/stats")
+@app.post("/params")
 def postData(request: Request):
     update_cultura(request.tipo_cultura)
     return request
